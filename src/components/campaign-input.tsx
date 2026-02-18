@@ -18,7 +18,7 @@ const LANGUAGES = [
   { id: 'en', label: 'English' },
 ]
 
-type CampaignStatus = 'idle' | 'running' | 'completed' | 'stopped' | 'error'
+type CampaignStatus = 'idle' | 'running' | 'completed' | 'stopped' | 'error' | 'waiting_approval'
 
 interface CampaignState {
   status: CampaignStatus
@@ -26,6 +26,7 @@ interface CampaignState {
   phase?: number
   phase_name?: string
   campaign_brief?: string
+  error?: string
 }
 
 export default function CampaignInput() {
@@ -44,7 +45,21 @@ export default function CampaignInput() {
       const pipelineStatus = data.pipeline?.status || 'idle'
       const campaignData = data.campaign
 
-      if (campaignData?.status === 'running' || pipelineStatus === 'running') {
+      if (pipelineStatus === 'error') {
+        setCampaignState({
+          status: 'error',
+          brief: campaignData?.brief,
+          error: data.pipeline?.error || 'Error desconocido',
+        })
+      } else if (pipelineStatus === 'waiting_approval') {
+        setCampaignState({
+          status: 'waiting_approval',
+          brief: campaignData?.brief,
+          phase: data.pipeline?.phase,
+          phase_name: data.pipeline?.phase_name,
+          campaign_brief: data.pipeline?.campaign_brief,
+        })
+      } else if (campaignData?.status === 'running' || pipelineStatus === 'running') {
         setCampaignState({
           status: 'running',
           brief: campaignData?.brief,
@@ -104,7 +119,7 @@ export default function CampaignInput() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Error al lanzar la campaña')
+        setError(data.detail || data.error || 'Error al lanzar la campaña')
         return
       }
 
@@ -118,7 +133,20 @@ export default function CampaignInput() {
   }
 
   const handleReset = async () => {
+    try {
+      await fetch(`${BACKEND}/api/pipeline/reset`, { method: 'POST' })
+    } catch {
+      // ignore reset errors
+    }
     setCampaignState({ status: 'idle' })
+  }
+
+  const handleApprove = async () => {
+    try {
+      await fetch(`${BACKEND}/api/pipeline/approve`, { method: 'POST' })
+    } catch {
+      setError('Error al aprobar checkpoint')
+    }
   }
 
   // ── Running state ──
@@ -198,6 +226,70 @@ export default function CampaignInput() {
           >
             <RefreshCw className="w-4 h-4" />
             Nueva campaña
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Error state ──
+  if (campaignState.status === 'error') {
+    return (
+      <div className="bg-white rounded-xl border border-red-200 p-6 shadow-sm mb-8">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-red-500">
+            <XCircle className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-gray-900">Error en el pipeline</h2>
+            <p className="text-sm text-red-600 mt-1">{campaignState.error}</p>
+            {campaignState.brief && (
+              <p className="text-xs text-gray-400 mt-1">Brief: {campaignState.brief}</p>
+            )}
+          </div>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-blue hover:bg-brand-blue/5 rounded-lg transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Waiting approval state ──
+  if (campaignState.status === 'waiting_approval') {
+    return (
+      <div className="bg-white rounded-xl border border-amber-200 p-6 shadow-sm mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-amber-500">
+            <CheckCircle className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-gray-900">Esperando aprobación</h2>
+            <p className="text-sm text-gray-500">
+              Fase {campaignState.phase}: {campaignState.phase_name}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleApprove}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Aprobar y continuar
+          </button>
+          <button
+            onClick={async () => {
+              await fetch(`${BACKEND}/api/pipeline/stop`, { method: 'POST' })
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
+          >
+            <XCircle className="w-4 h-4" />
+            Detener
           </button>
         </div>
       </div>
