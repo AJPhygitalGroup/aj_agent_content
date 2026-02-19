@@ -132,6 +132,91 @@ export interface EngagementReport {
   recommendations_next_cycle?: string[]
 }
 
+// --- Viral Analysis ---
+
+export interface ViralContent {
+  platform?: string
+  topic?: string
+  hook_type?: string
+  hook_text?: string
+  tone?: string
+  format?: string
+  estimated_views?: string
+  engagement_rate?: string
+  script_structure?: string
+  key_takeaway?: string
+}
+
+export interface ViralAnalysisReport {
+  viral_content_analyzed?: ViralContent[]
+  patterns_detected?: string[]
+  top_hooks_by_platform?: Record<string, string[]>
+  winning_formats_by_platform?: Record<string, string[]>
+  recommendations?: string[]
+}
+
+// --- SEO Optimizations ---
+
+export interface SEOOptimization {
+  slot_id: string
+  platform?: string
+  hashtags?: {
+    primary?: string[]
+    secondary?: string[]
+    long_tail?: string[]
+    branded?: string[]
+  }
+  optimized_title?: string
+  optimized_description?: string
+  alt_text?: string
+  keywords?: string[]
+}
+
+export interface SEOOptimizations {
+  optimizations?: SEOOptimization[]
+  keyword_opportunities?: string[]
+  trending_hashtags_by_platform?: Record<string, string[]>
+}
+
+// --- Visual Designer ---
+
+export interface GeneratedImage {
+  slot_id?: string
+  filename?: string
+  type?: string
+  dimensions?: string
+  status?: string
+}
+
+export interface VisualDesignerReport {
+  images_generated?: GeneratedImage[]
+  total_images?: number
+  failed?: any[]
+}
+
+// --- Carousel Creator ---
+
+export interface CarouselSlide {
+  slide_number?: number
+  filename?: string
+  status?: string
+}
+
+export interface Carousel {
+  slot_id?: string
+  platform?: string
+  total_slides?: number
+  slides?: CarouselSlide[]
+}
+
+export interface CarouselReport {
+  carousels?: Carousel[]
+  total_carousels?: number
+  total_slides_generated?: number
+}
+
+// --- Approvals ---
+
 export interface ApprovalDecision {
   id: string
   checkpoint: 'post_planning' | 'post_production' | 'pre_publication'
@@ -194,6 +279,26 @@ export async function getBrandCompliance(): Promise<BrandComplianceReport | null
 
 export async function getEngagementReport(): Promise<EngagementReport | null> {
   const data = await fetchBackend<{ data: EngagementReport }>('/api/content/engagement')
+  return data?.data || null
+}
+
+export async function getViralAnalysis(): Promise<ViralAnalysisReport | null> {
+  const data = await fetchBackend<{ data: ViralAnalysisReport }>('/api/content/viral')
+  return data?.data || null
+}
+
+export async function getSEOOptimizations(): Promise<SEOOptimizations | null> {
+  const data = await fetchBackend<{ data: SEOOptimizations }>('/api/content/seo')
+  return data?.data || null
+}
+
+export async function getVisualDesignerReport(): Promise<VisualDesignerReport | null> {
+  const data = await fetchBackend<{ data: VisualDesignerReport }>('/api/content/images')
+  return data?.data || null
+}
+
+export async function getCarouselReport(): Promise<CarouselReport | null> {
+  const data = await fetchBackend<{ data: CarouselReport }>('/api/content/carousels')
   return data?.data || null
 }
 
