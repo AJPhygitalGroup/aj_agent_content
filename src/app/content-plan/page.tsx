@@ -183,11 +183,11 @@ export default function ContentPlanPage() {
                           style={{ width: `${Math.round((posts / (totalPosts || 1)) * 100)}%` }}
                         />
                       </div>
-                      {typeof val === 'object' && val?.posts_per_day != null && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">{val.posts_per_day}/dia</p>
+                      {typeof val === 'object' && (val as any)?.posts_per_day != null && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">{(val as any).posts_per_day}/dia</p>
                       )}
-                      {typeof val === 'object' && val?.posts_per_week != null && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">{val.posts_per_week}/semana</p>
+                      {typeof val === 'object' && (val as any)?.posts_per_week != null && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">{(val as any).posts_per_week}/semana</p>
                       )}
                     </div>
                   )
