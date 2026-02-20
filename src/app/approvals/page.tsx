@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import ApprovalCard from '@/components/approval-card'
-import { CheckCircle, FileText, Send, Loader2, Play, XCircle } from 'lucide-react'
+import { CheckCircle, FileText, Send, Loader2, Play, XCircle, RefreshCw } from 'lucide-react'
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -24,35 +24,59 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true)
   const [pipelineState, setPipelineState] = useState<any>(null)
   const [approving, setApproving] = useState(false)
+  const [reloading, setReloading] = useState(false)
+
+  // Load all content data from API
+  async function reloadContent() {
+    const [planRes, scriptsRes, complianceRes, scheduleRes, approvalsRes] = await Promise.all([
+      fetch(`${BACKEND}/api/content/plan`).then(r => r.json()).catch(() => null),
+      fetch(`${BACKEND}/api/content/scripts`).then(r => r.json()).catch(() => null),
+      fetch(`${BACKEND}/api/content/compliance`).then(r => r.json()).catch(() => null),
+      fetch(`${BACKEND}/api/content/schedule`).then(r => r.json()).catch(() => null),
+      fetch(`${BACKEND}/api/approvals`).then(r => r.json()).catch(() => ({ decisions: [] })),
+    ])
+    if (planRes?.data) setContentPlan(planRes.data)
+    if (scriptsRes?.data) setScripts(scriptsRes.data)
+    if (complianceRes?.data) setCompliance(complianceRes.data)
+    if (scheduleRes?.data) setSchedule(scheduleRes.data)
+    setApprovals(approvalsRes || { decisions: [] })
+  }
 
   useEffect(() => {
-    async function load() {
+    async function init() {
       setLoading(true)
-      const [planRes, scriptsRes, complianceRes, scheduleRes, approvalsRes, campaignRes] = await Promise.all([
-        fetch(`${BACKEND}/api/content/plan`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND}/api/content/scripts`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND}/api/content/compliance`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND}/api/content/schedule`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND}/api/approvals`).then(r => r.json()).catch(() => ({ decisions: [] })),
-        fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null),
-      ])
-      // API returns { data: { daily_plans: [...] } } — extract .data
-      setContentPlan(planRes?.data || null)
-      setScripts(scriptsRes?.data || null)
-      setCompliance(complianceRes?.data || null)
-      setSchedule(scheduleRes?.data || null)
-      setApprovals(approvalsRes)
+      const campaignRes = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
       setPipelineState(campaignRes?.pipeline || null)
+      await reloadContent()
       setLoading(false)
     }
-    load()
-    // Poll pipeline state every 5s to detect checkpoint changes
+    init()
+    // Poll every 5s — reload content when pipeline is at a checkpoint
     const interval = setInterval(async () => {
       const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
-      if (res?.pipeline) setPipelineState(res.pipeline)
+      if (res?.pipeline) {
+        setPipelineState(res.pipeline)
+        // Always reload content when at checkpoint so we see the latest data
+        if (res.pipeline.status === 'waiting_approval') {
+          await reloadContent()
+          // Auto-switch tab based on pipeline phase
+          const phase = res.pipeline.phase
+          if (phase <= 2) setActiveTab('post_planning')
+          else if (phase <= 5) setActiveTab('post_production')
+          else if (phase === 6) setActiveTab('pre_publication')
+        }
+      }
     }, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleReload() {
+    setReloading(true)
+    await reloadContent()
+    const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
+    if (res?.pipeline) setPipelineState(res.pipeline)
+    setReloading(false)
+  }
 
   async function handlePipelineApprove() {
     setApproving(true)
@@ -74,7 +98,7 @@ export default function ApprovalsPage() {
     const decision = approvals.decisions?.find(
       (d: any) => d.item_id === itemId && d.checkpoint === checkpoint
     )
-    return decision?.status
+    return decision?.status || decision?.decision
   }
 
   async function handleBatchApprove(checkpoint: Tab, itemIds: string[]) {
@@ -93,9 +117,19 @@ export default function ApprovalsPage() {
 
   return (
     <div className="max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Approvals</h1>
-        <p className="text-sm text-gray-500 mt-1">Revisar y aprobar contenido en cada checkpoint</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Approvals</h1>
+          <p className="text-sm text-gray-500 mt-1">Revisar y aprobar contenido en cada checkpoint</p>
+        </div>
+        <button
+          onClick={handleReload}
+          disabled={reloading}
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${reloading ? 'animate-spin' : ''}`} />
+          Recargar
+        </button>
       </div>
 
       {/* Tabs */}
