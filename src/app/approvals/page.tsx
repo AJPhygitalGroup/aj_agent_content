@@ -233,6 +233,12 @@ export default function ApprovalsPage() {
                 </div>
               ))}
             </>
+          ) : pipelineState?.status === 'waiting_approval' && pipelineState?.phase === 2 ? (
+            <div className="bg-white rounded-xl border border-amber-200 p-8 text-center">
+              <Loader2 className="w-8 h-8 text-amber-400 mx-auto mb-3 animate-spin" />
+              <p className="text-sm font-medium text-amber-800">El plan se esta generando o cargando...</p>
+              <p className="text-xs text-amber-600 mt-1">La pagina se actualiza automaticamente cada 5 segundos. Tambien puedes presionar &quot;Recargar&quot;.</p>
+            </div>
           ) : (
             <EmptyState text="No hay plan de contenido aun. Ejecuta las fases 1 y 2 del pipeline." />
           )}
@@ -283,6 +289,12 @@ export default function ApprovalsPage() {
                 })}
               </div>
             </>
+          ) : pipelineState?.status === 'waiting_approval' && pipelineState?.phase === 5 ? (
+            <div className="bg-white rounded-xl border border-amber-200 p-8 text-center">
+              <Loader2 className="w-8 h-8 text-amber-400 mx-auto mb-3 animate-spin" />
+              <p className="text-sm font-medium text-amber-800">El contenido se esta cargando...</p>
+              <p className="text-xs text-amber-600 mt-1">Presiona &quot;Recargar&quot; o espera a que se actualice automaticamente.</p>
+            </div>
           ) : (
             <EmptyState text="No hay scripts generados aun. Ejecuta la fase 3 del pipeline." />
           )}
