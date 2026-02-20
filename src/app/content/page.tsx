@@ -547,35 +547,61 @@ export default function ContentPage() {
               )}
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {images.images_generated.map((img: any, i: number) => (
-                  <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    {/* Image preview area with gradient based on platform */}
-                    <div className={`w-full h-36 flex flex-col items-center justify-center relative ${
-                      img.platform === 'instagram' ? 'bg-gradient-to-br from-pink-100 to-purple-100' :
-                      img.platform === 'tiktok' ? 'bg-gradient-to-br from-gray-100 to-gray-200' :
-                      img.platform === 'linkedin' ? 'bg-gradient-to-br from-blue-50 to-blue-100' :
-                      img.platform === 'youtube' ? 'bg-gradient-to-br from-red-50 to-red-100' :
-                      img.platform === 'facebook' ? 'bg-gradient-to-br from-blue-50 to-indigo-100' :
-                      'bg-gray-100'
-                    }`}>
-                      <Eye className="w-6 h-6 text-gray-400 mb-1" />
-                      <span className="text-[10px] text-gray-500 px-2 text-center">{img.content || img.type || 'image'}</span>
-                      <span className="text-[10px] text-gray-400">{img.dimensions}</span>
-                      {/* Platform badge */}
-                      {img.platform && (
-                        <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${platformBgColors[img.platform] || 'bg-gray-500'}`}>
-                          {platformLabels[img.platform] || img.platform}
-                        </span>
-                      )}
-                      {/* Status */}
-                      <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${img.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                {images.images_generated.map((img: any, i: number) => {
+                  const imgSrc = img.url ? `${BACKEND}${img.url}` : null
+                  return (
+                    <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group">
+                      {/* Image preview */}
+                      <div className="relative">
+                        {imgSrc ? (
+                          <img
+                            src={imgSrc}
+                            alt={img.content || img.type || 'Generated image'}
+                            className="w-full h-44 object-cover bg-gray-50"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }}
+                          />
+                        ) : null}
+                        {/* Fallback placeholder (shown if no url or image fails to load) */}
+                        <div className={`${imgSrc ? 'hidden' : ''} w-full h-44 flex flex-col items-center justify-center ${
+                          img.platform === 'instagram' ? 'bg-gradient-to-br from-pink-100 to-purple-100' :
+                          img.platform === 'tiktok' ? 'bg-gradient-to-br from-gray-100 to-gray-200' :
+                          img.platform === 'linkedin' ? 'bg-gradient-to-br from-blue-50 to-blue-100' :
+                          img.platform === 'youtube' ? 'bg-gradient-to-br from-red-50 to-red-100' :
+                          img.platform === 'facebook' ? 'bg-gradient-to-br from-blue-50 to-indigo-100' :
+                          'bg-gray-100'
+                        }`}>
+                          <Eye className="w-6 h-6 text-gray-400 mb-1" />
+                          <span className="text-[10px] text-gray-500 px-2 text-center">{img.content || img.type || 'image'}</span>
+                          <span className="text-[10px] text-gray-400">{img.dimensions}</span>
+                        </div>
+                        {/* Platform badge */}
+                        {img.platform && (
+                          <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${platformBgColors[img.platform] || 'bg-gray-500'}`}>
+                            {platformLabels[img.platform] || img.platform}
+                          </span>
+                        )}
+                        {/* Status */}
+                        <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${img.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        {/* Download overlay */}
+                        {imgSrc && (
+                          <a
+                            href={imgSrc}
+                            download={img.filename || 'image.png'}
+                            className="absolute bottom-2 right-2 bg-white/90 rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-white"
+                            title="Descargar imagen"
+                          >
+                            <Download className="w-3.5 h-3.5 text-gray-600" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="text-xs font-medium text-gray-700 mb-0.5">{(img.type || 'image').replace(/_/g, ' ')}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{img.filename || img.slot_id}</p>
+                        {img.dimensions && <p className="text-[10px] text-gray-300">{img.dimensions}</p>}
+                      </div>
                     </div>
-                    <div className="p-3">
-                      <p className="text-xs font-medium text-gray-700 mb-0.5">{(img.type || 'image').replace(/_/g, ' ')}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{img.filename || img.slot_id}</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Content themes */}
@@ -620,21 +646,58 @@ export default function ContentPage() {
                   {carousel.title && <p className="text-sm font-medium text-gray-900 mb-2">{carousel.title}</p>}
 
                   {carousel.slides && carousel.slides.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {carousel.slides.map((slide: any, j: number) => (
-                        <div key={j} className={`flex-shrink-0 w-24 p-2 rounded-lg border ${
-                          slide.type === 'cover' ? 'bg-brand-blue/5 border-brand-blue/20' :
-                          slide.type === 'cta' ? 'bg-amber-50 border-amber-200' :
-                          'bg-gray-50 border-gray-100'
-                        }`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold text-gray-500">#{slide.slide_number}</span>
-                            <span className={`w-1.5 h-1.5 rounded-full ${slide.status === 'success' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {carousel.slides.map((slide: any, j: number) => {
+                        const slideSrc = slide.url ? `${BACKEND}${slide.url}` : null
+                        return (
+                          <div key={j} className={`flex-shrink-0 w-32 rounded-lg border overflow-hidden group ${
+                            slide.type === 'cover' ? 'border-brand-blue/30' :
+                            slide.type === 'cta' ? 'border-amber-300' :
+                            'border-gray-200'
+                          }`}>
+                            {/* Slide image */}
+                            {slideSrc ? (
+                              <div className="relative">
+                                <img
+                                  src={slideSrc}
+                                  alt={slide.description || `Slide ${slide.slide_number}`}
+                                  className="w-full h-32 object-cover bg-gray-50"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }}
+                                />
+                                <div className="hidden w-full h-32 flex flex-col items-center justify-center bg-gray-50">
+                                  <Layers className="w-4 h-4 text-gray-300" />
+                                </div>
+                                <a
+                                  href={slideSrc}
+                                  download={slide.filename || `slide_${slide.slide_number}.png`}
+                                  className="absolute bottom-1 right-1 bg-white/90 rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Descargar slide"
+                                >
+                                  <Download className="w-3 h-3 text-gray-500" />
+                                </a>
+                              </div>
+                            ) : (
+                              <div className={`w-full h-32 flex flex-col items-center justify-center ${
+                                slide.type === 'cover' ? 'bg-brand-blue/5' :
+                                slide.type === 'cta' ? 'bg-amber-50' :
+                                'bg-gray-50'
+                              }`}>
+                                <Layers className="w-4 h-4 text-gray-400" />
+                                <span className="text-[10px] text-gray-400 mt-1">#{slide.slide_number}</span>
+                              </div>
+                            )}
+                            {/* Slide info */}
+                            <div className="p-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-500">#{slide.slide_number}</span>
+                                <span className={`w-1.5 h-1.5 rounded-full ${slide.status === 'success' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                              </div>
+                              {slide.type && <p className="text-[10px] text-gray-500 capitalize">{slide.type}</p>}
+                              {slide.description && <p className="text-[9px] text-gray-400 mt-0.5 line-clamp-2">{slide.description}</p>}
+                            </div>
                           </div>
-                          {slide.type && <p className="text-[10px] text-gray-500 capitalize">{slide.type}</p>}
-                          {slide.description && <p className="text-[9px] text-gray-400 mt-0.5 line-clamp-2">{slide.description}</p>}
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
