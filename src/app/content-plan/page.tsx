@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Calendar, Loader2, Filter, Globe, Target, TrendingUp } from 'lucide-react'
+import { Calendar, Loader2, Filter, Globe, Target, TrendingUp, Download } from 'lucide-react'
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -95,13 +95,61 @@ export default function ContentPlanPage() {
 
   const totalPosts = plan?.total_posts || dailyPlans.reduce((sum: number, d: any) => sum + (d.content_slots?.length || 0), 0)
 
+  function handleDownloadPlanCSV() {
+    if (!dailyPlans.length) return
+    const headers = ['date', 'day_theme', 'slot_id', 'platform', 'content_type', 'topic', 'hook_idea', 'cta', 'language', 'pillar', 'viral_pattern', 'priority', 'expected_engagement', 'scheduled_time', 'target_countries']
+    const rows: string[][] = []
+    dailyPlans.forEach((day: any) => {
+      (day.content_slots || []).forEach((s: any) => {
+        rows.push([
+          day.date || '', day.day_theme || '', s.slot_id || '', s.platform || '',
+          s.content_type || '', s.topic || '', s.hook_idea || '', s.cta || '',
+          s.language || '', s.pillar || '', s.viral_pattern || '', s.priority || '',
+          s.expected_engagement || '', s.scheduled_time || '',
+          Array.isArray(s.target_countries) ? s.target_countries.join('; ') : ''
+        ])
+      })
+    })
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'content_plan.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleDownloadPlanJSON() {
+    if (!plan) return
+    const blob = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'content_plan.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="max-w-5xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Content Plan</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Calendario semanal de contenido (Fase 2: Content Planner)
-        </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Content Plan</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Calendario semanal de contenido (Fase 2: Content Planner)
+          </p>
+        </div>
+        {plan && (
+          <div className="flex gap-2">
+            <button onClick={handleDownloadPlanCSV} className="flex items-center gap-1.5 text-xs text-brand-blue hover:text-brand-blue/80 font-medium bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+              <Download className="w-3.5 h-3.5" /> CSV
+            </button>
+            <button onClick={handleDownloadPlanJSON} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 font-medium bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+              <Download className="w-3.5 h-3.5" /> JSON
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && (
