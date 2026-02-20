@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import ApprovalCard from '@/components/approval-card'
-import { CheckCircle, FileText, Send, Loader2 } from 'lucide-react'
+import { CheckCircle, FileText, Send, Loader2, Play, XCircle } from 'lucide-react'
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -22,26 +22,53 @@ export default function ApprovalsPage() {
   const [schedule, setSchedule] = useState<any>(null)
   const [approvals, setApprovals] = useState<any>({ decisions: [] })
   const [loading, setLoading] = useState(true)
+  const [pipelineState, setPipelineState] = useState<any>(null)
+  const [approving, setApproving] = useState(false)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [planRes, scriptsRes, complianceRes, scheduleRes, approvalsRes] = await Promise.all([
+      const [planRes, scriptsRes, complianceRes, scheduleRes, approvalsRes, campaignRes] = await Promise.all([
         fetch(`${BACKEND}/api/content/plan`).then(r => r.json()).catch(() => null),
         fetch(`${BACKEND}/api/content/scripts`).then(r => r.json()).catch(() => null),
         fetch(`${BACKEND}/api/content/compliance`).then(r => r.json()).catch(() => null),
         fetch(`${BACKEND}/api/content/schedule`).then(r => r.json()).catch(() => null),
         fetch(`${BACKEND}/api/approvals`).then(r => r.json()).catch(() => ({ decisions: [] })),
+        fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null),
       ])
-      setContentPlan(planRes?.error ? null : planRes)
-      setScripts(scriptsRes?.error ? null : scriptsRes)
-      setCompliance(complianceRes?.error ? null : complianceRes)
-      setSchedule(scheduleRes?.error ? null : scheduleRes)
+      // API returns { data: { daily_plans: [...] } } — extract .data
+      setContentPlan(planRes?.data || null)
+      setScripts(scriptsRes?.data || null)
+      setCompliance(complianceRes?.data || null)
+      setSchedule(scheduleRes?.data || null)
       setApprovals(approvalsRes)
+      setPipelineState(campaignRes?.pipeline || null)
       setLoading(false)
     }
     load()
+    // Poll pipeline state every 5s to detect checkpoint changes
+    const interval = setInterval(async () => {
+      const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
+      if (res?.pipeline) setPipelineState(res.pipeline)
+    }, 5000)
+    return () => clearInterval(interval)
   }, [])
+
+  async function handlePipelineApprove() {
+    setApproving(true)
+    try {
+      await fetch(`${BACKEND}/api/pipeline/approve`, { method: 'POST' })
+      const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
+      if (res?.pipeline) setPipelineState(res.pipeline)
+    } catch { /* ignore */ }
+    setApproving(false)
+  }
+
+  async function handlePipelineStop() {
+    await fetch(`${BACKEND}/api/pipeline/stop`, { method: 'POST' })
+    const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
+    if (res?.pipeline) setPipelineState(res.pipeline)
+  }
 
   function getDecidedStatus(itemId: string, checkpoint: string): string | undefined {
     const decision = approvals.decisions?.find(
@@ -88,6 +115,39 @@ export default function ApprovalsPage() {
           </button>
         ))}
       </div>
+
+      {/* Pipeline Checkpoint Banner */}
+      {pipelineState?.status === 'waiting_approval' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-amber-900">
+                Pipeline esperando aprobacion - Fase {pipelineState.phase}: {pipelineState.phase_name}
+              </h3>
+              <p className="text-xs text-amber-700 mt-1">
+                Revisa el contenido abajo y cuando estes listo, aprueba para continuar con la siguiente fase.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePipelineApprove}
+                disabled={approving}
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 text-sm"
+              >
+                {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                Aprobar y Continuar
+              </button>
+              <button
+                onClick={handlePipelineStop}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors text-sm"
+              >
+                <XCircle className="w-4 h-4" />
+                Detener
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center py-12">

@@ -280,14 +280,31 @@ export default function ResearchPage() {
               {viral.patterns_detected && viral.patterns_detected.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Patrones Detectados</h3>
-                  <ul className="space-y-1.5">
-                    {viral.patterns_detected.map((p, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-purple mt-1.5 flex-shrink-0" />
-                        {p}
-                      </li>
+                  <div className="space-y-3">
+                    {viral.patterns_detected.map((p: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg bg-purple-50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-brand-purple flex-shrink-0" />
+                          <span className="text-sm font-medium text-gray-800">
+                            {typeof p === 'string' ? p : p.pattern || p.description || JSON.stringify(p)}
+                          </span>
+                          {p.success_rate && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{p.success_rate}</span>
+                          )}
+                        </div>
+                        {p.description && p.pattern && (
+                          <p className="text-xs text-gray-600 ml-4">{p.description}</p>
+                        )}
+                        {p.key_elements && (
+                          <div className="flex flex-wrap gap-1 ml-4 mt-1">
+                            {(Array.isArray(p.key_elements) ? p.key_elements : []).map((el: string, j: number) => (
+                              <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-white text-purple-600">{el}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
@@ -295,16 +312,28 @@ export default function ResearchPage() {
               {viral.top_hooks_by_platform && Object.keys(viral.top_hooks_by_platform).length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hooks Ganadores por Plataforma</h3>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {Object.entries(viral.top_hooks_by_platform).map(([platform, hooks]) => (
                       <div key={platform}>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <span>{platformEmoji[platform] || '📱'}</span>
                           <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 ml-6">
-                          {(hooks as string[]).map((h, i) => (
-                            <span key={i} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-700">{h}</span>
+                        <div className="space-y-2 ml-6">
+                          {(hooks as any[]).map((h: any, i: number) => (
+                            <div key={i} className="p-2 rounded bg-purple-50">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-purple-700">
+                                  {typeof h === 'string' ? h : h.type || h.hook_type || ''}
+                                </span>
+                                {h.success_rate && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">{h.success_rate}</span>
+                                )}
+                              </div>
+                              {h.template && (
+                                <p className="text-xs text-purple-600 mt-0.5 italic">{h.template}</p>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -317,16 +346,35 @@ export default function ResearchPage() {
               {viral.winning_formats_by_platform && Object.keys(viral.winning_formats_by_platform).length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Formatos Ganadores por Plataforma</h3>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {Object.entries(viral.winning_formats_by_platform).map(([platform, formats]) => (
                       <div key={platform}>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <span>{platformEmoji[platform] || '📱'}</span>
                           <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 ml-6">
-                          {(formats as string[]).map((f, i) => (
-                            <span key={i} className="text-xs px-2 py-1 rounded bg-green-50 text-green-700">{f}</span>
+                        <div className="space-y-2 ml-6">
+                          {(formats as any[]).map((f: any, i: number) => (
+                            <div key={i} className="p-2 rounded bg-green-50">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-green-700">
+                                  {typeof f === 'string' ? f : f.format || ''}
+                                </span>
+                                {f.optimal_duration && (
+                                  <span className="text-xs text-gray-500">{f.optimal_duration}</span>
+                                )}
+                                {f.engagement_boost && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">+{f.engagement_boost}</span>
+                                )}
+                              </div>
+                              {f.key_elements && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(Array.isArray(f.key_elements) ? f.key_elements : []).map((el: string, j: number) => (
+                                    <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-white text-green-600">{el}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -339,14 +387,29 @@ export default function ResearchPage() {
               {viral.recommendations && viral.recommendations.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recomendaciones</h3>
-                  <ul className="space-y-1.5">
-                    {viral.recommendations.map((r, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-blue mt-1.5 flex-shrink-0" />
-                        {r}
-                      </li>
+                  <div className="space-y-3">
+                    {viral.recommendations.map((r: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg bg-blue-50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-brand-blue flex-shrink-0" />
+                          <span className="text-sm font-medium text-gray-800">
+                            {typeof r === 'string' ? r : r.recommendation || JSON.stringify(r)}
+                          </span>
+                          {r.priority && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              r.priority === 'high' ? 'bg-red-100 text-red-700' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                            }`}>{r.priority}</span>
+                          )}
+                        </div>
+                        {r.rationale && (
+                          <p className="text-xs text-gray-600 ml-4">{r.rationale}</p>
+                        )}
+                        {r.implementation && (
+                          <p className="text-xs text-blue-600 ml-4 mt-0.5 italic">{r.implementation}</p>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
