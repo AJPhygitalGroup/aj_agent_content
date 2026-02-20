@@ -303,7 +303,7 @@ export default function ContentPlanPage() {
                               <span className="text-xs text-gray-500 block">
                                 {(() => {
                                   try { return new Date(slot.scheduled_time).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) }
-                                  catch { return slot.scheduled_time }
+                                  catch (_e) { return slot.scheduled_time }
                                 })()}
                               </span>
                             )}
