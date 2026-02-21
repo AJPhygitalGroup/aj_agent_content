@@ -187,13 +187,28 @@ function TrendsContent({ data }: { data: any }) {
 
 // ── Viral Content ───────────────────────────────────────────
 function ViralContent({ data }: { data: any }) {
+  // All sub-sections live either at data.X or data.patterns_detected.X
+  const p = data.patterns_detected || {}
+  const get = (key: string) => data[key] || p[key]
+
   return (
     <div className="space-y-6">
       {/* Campaign Context */}
       {data.campaign_context && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contexto de Campana</h3>
-          <p className="text-sm text-gray-700">{typeof data.campaign_context === 'string' ? data.campaign_context : JSON.stringify(data.campaign_context)}</p>
+          {typeof data.campaign_context === 'string' ? (
+            <p className="text-sm text-gray-700">{data.campaign_context}</p>
+          ) : (
+            <div className="space-y-2">
+              {Object.entries(data.campaign_context).map(([k, v]: [string, any]) => (
+                <div key={k}>
+                  <span className="text-xs font-bold text-gray-600 uppercase">{k.replace(/_/g, ' ')}: </span>
+                  <span className="text-sm text-gray-700">{typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : JSON.stringify(v)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -298,98 +313,141 @@ function ViralContent({ data }: { data: any }) {
         </div>
       )}
 
-      {/* Patterns Detected — handles both object and array */}
-      {data.patterns_detected && (
-        <PatternsSection patterns={data.patterns_detected} />
+      {/* Top Performing Hooks */}
+      {Array.isArray(get('top_performing_hooks')) && get('top_performing_hooks').length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Top Hooks</h3>
+          <div className="space-y-2">
+            {get('top_performing_hooks').map((h: any, i: number) => (
+              <div key={i} className="p-3 rounded-lg bg-purple-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-purple-800">{h.type || (typeof h === 'string' ? h : '')}</span>
+                  {h.effectiveness && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{h.effectiveness}</span>}
+                </div>
+                {Array.isArray(h.examples) && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {h.examples.map((ex: string, j: number) => (
+                      <span key={j} className="text-xs px-2 py-1 rounded bg-white text-purple-600 italic">&ldquo;{ex}&rdquo;</span>
+                    ))}
+                  </div>
+                )}
+                {Array.isArray(h.best_platforms) && (
+                  <div className="flex gap-1 mt-1">
+                    {h.best_platforms.map((pl: string, j: number) => (
+                      <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{platformEmoji[pl] || ''} {pl}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Winning Structures — per-platform script structures */}
+      {Array.isArray(get('winning_structures')) && get('winning_structures').length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estructuras de Guion Ganadoras</h3>
+          <div className="space-y-3">
+            {get('winning_structures').map((s: any, i: number) => (
+              <div key={i} className="p-4 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">{platformEmoji[s.platform || ''] || '📱'}</span>
+                  <span className="text-sm font-bold text-amber-900 capitalize">{s.platform}</span>
+                </div>
+                <p className="text-xs text-amber-800 font-mono leading-relaxed">{s.structure}</p>
+                {Array.isArray(s.key_elements) && s.key_elements.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {s.key_elements.map((el: string, j: number) => (
+                      <span key={j} className="text-xs px-2 py-0.5 rounded bg-white text-amber-700 border border-amber-200">{el}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Visual Elements That Work */}
+      {Array.isArray(get('visual_elements_that_work')) && get('visual_elements_that_work').length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Elementos Visuales que Funcionan</h3>
+          <div className="space-y-2">
+            {get('visual_elements_that_work').map((v: any, i: number) => {
+              const effColors: Record<string, string> = {
+                very_high: 'bg-green-100 text-green-700',
+                high: 'bg-blue-100 text-blue-700',
+                medium_high: 'bg-yellow-100 text-yellow-700',
+                medium: 'bg-gray-100 text-gray-600',
+              }
+              return (
+                <div key={i} className="p-3 rounded-lg bg-indigo-50 border border-indigo-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-indigo-800">{(v.element || '').replace(/_/g, ' ')}</span>
+                    {v.effectiveness && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${effColors[v.effectiveness] || 'bg-gray-100 text-gray-600'}`}>
+                        {v.effectiveness.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                  {v.use_case && <p className="text-xs text-indigo-600 mt-0.5">{v.use_case}</p>}
+                  {Array.isArray(v.platforms) && (
+                    <div className="flex gap-1 mt-1">
+                      {v.platforms.map((pl: string, j: number) => (
+                        <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-white text-indigo-600">
+                          {platformEmoji[pl] || ''} {pl === 'all' ? 'Todas' : pl}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Engagement Drivers */}
+      {Array.isArray(get('engagement_drivers')) && get('engagement_drivers').length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Drivers de Engagement</h3>
+          <div className="space-y-2">
+            {get('engagement_drivers').map((d: any, i: number) => (
+              <div key={i} className="p-3 rounded-lg bg-green-50">
+                <span className="text-sm font-medium text-green-800">
+                  {typeof d === 'string' ? d : d.driver || d.name || d.type || JSON.stringify(d)}
+                </span>
+                {d.description && <p className="text-xs text-green-600 mt-0.5">{d.description}</p>}
+                {d.impact && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 ml-2">{d.impact}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Top Hooks by Platform */}
-      {data.top_hooks_by_platform && typeof data.top_hooks_by_platform === 'object' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hooks Ganadores por Plataforma</h3>
-          <div className="space-y-4">
-            {Object.entries(data.top_hooks_by_platform).map(([platform, hooks]: [string, any]) => (
-              <div key={platform}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span>{platformEmoji[platform] || '📱'}</span>
-                  <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
-                </div>
-                <div className="space-y-2 ml-6">
-                  {Array.isArray(hooks) ? hooks.map((h: any, i: number) => (
-                    <div key={i} className="p-2 rounded bg-purple-50">
-                      <span className="text-xs text-purple-700">
-                        {typeof h === 'string' ? h : h.template || h.type || h.hook_type || JSON.stringify(h)}
-                      </span>
-                      {h.success_rate && (
-                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">{h.success_rate}</span>
-                      )}
-                    </div>
-                  )) : typeof hooks === 'object' ? Object.entries(hooks).map(([key, val]: [string, any]) => (
-                    <div key={key} className="p-2 rounded bg-purple-50">
-                      <span className="text-xs font-semibold text-purple-700 capitalize">{key.replace(/_/g, ' ')}: </span>
-                      <span className="text-xs text-purple-600">{typeof val === 'string' ? val : JSON.stringify(val)}</span>
-                    </div>
-                  )) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <HooksByPlatform hooks={get('top_hooks_by_platform')} />
 
-      {/* Winning Formats — handles both object values and array values */}
-      {data.winning_formats_by_platform && typeof data.winning_formats_by_platform === 'object' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Formatos Ganadores por Plataforma</h3>
-          <div className="space-y-4">
-            {Object.entries(data.winning_formats_by_platform).map(([platform, formats]: [string, any]) => (
-              <div key={platform}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span>{platformEmoji[platform] || '📱'}</span>
-                  <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
-                </div>
-                <div className="space-y-2 ml-6">
-                  {Array.isArray(formats) ? formats.map((f: any, i: number) => (
-                    <div key={i} className="p-2 rounded bg-green-50">
-                      <span className="text-xs font-semibold text-green-700">
-                        {typeof f === 'string' ? f : f.format || JSON.stringify(f)}
-                      </span>
-                    </div>
-                  )) : typeof formats === 'object' ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(formats).map(([key, val]: [string, any]) => (
-                        <div key={key} className="p-2 rounded bg-green-50">
-                          <span className="text-xs font-semibold text-green-700 capitalize">{key.replace(/_/g, ' ')}: </span>
-                          <span className="text-xs text-green-600">{typeof val === 'string' ? val : JSON.stringify(val)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-500">{String(formats)}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Winning Formats by Platform */}
+      <FormatsByPlatform formats={get('winning_formats_by_platform')} />
 
       {/* Trending Audio/Music */}
-      {data.trending_audio_music && (
-        <GenericSection title="Audio y Musica Trending" data={data.trending_audio_music} color="pink" />
+      {get('trending_audio_music') && (
+        <GenericSection title="Audio y Musica Trending" data={get('trending_audio_music')} color="pink" />
       )}
 
       {/* Cultural Adaptations */}
-      {data.cultural_adaptations && (
-        <GenericSection title="Adaptaciones Culturales" data={data.cultural_adaptations} color="amber" />
+      {get('cultural_adaptations') && (
+        <GenericSection title="Adaptaciones Culturales" data={get('cultural_adaptations')} color="amber" />
       )}
 
       {/* Recommendations */}
-      {Array.isArray(data.recommendations) && data.recommendations.length > 0 && (
+      {Array.isArray(get('recommendations')) && get('recommendations').length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recomendaciones</h3>
           <div className="space-y-3">
-            {data.recommendations.map((r: any, i: number) => (
+            {get('recommendations').map((r: any, i: number) => (
               <div key={i} className="p-3 rounded-lg bg-blue-50">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-blue flex-shrink-0" />
@@ -414,122 +472,95 @@ function ViralContent({ data }: { data: any }) {
       )}
 
       {/* Competitive Insights */}
-      {data.competitive_insights && (
-        <GenericSection title="Insights Competitivos" data={data.competitive_insights} color="purple" />
+      {get('competitive_insights') && (
+        <GenericSection title="Insights Competitivos" data={get('competitive_insights')} color="purple" />
       )}
 
       {/* KPI Tracking */}
-      {data.kpi_tracking && (
-        <GenericSection title="KPIs de Seguimiento" data={data.kpi_tracking} color="blue" />
+      {get('kpi_tracking') && (
+        <GenericSection title="KPIs de Seguimiento" data={get('kpi_tracking')} color="blue" />
       )}
 
       {/* Content Calendar Suggestions */}
-      {data.content_calendar_suggestions && (
-        <GenericSection title="Sugerencias para Calendario" data={data.content_calendar_suggestions} color="green" />
+      {get('content_calendar_suggestions') && (
+        <GenericSection title="Sugerencias para Calendario" data={get('content_calendar_suggestions')} color="green" />
       )}
     </div>
   )
 }
 
-// ── Patterns Section — handles the complex nested object ────
-function PatternsSection({ patterns }: { patterns: any }) {
-  // patterns can be: string[], object[], or a nested object like { top_performing_hooks: [...], ... }
-  if (Array.isArray(patterns)) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Patrones Detectados</h3>
-        <div className="space-y-3">
-          {patterns.map((p: any, i: number) => (
-            <div key={i} className="p-3 rounded-lg bg-purple-50">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-purple flex-shrink-0" />
-                <span className="text-sm font-medium text-gray-800">
-                  {typeof p === 'string' ? p : p.pattern || p.description || p.type || JSON.stringify(p)}
-                </span>
-                {p.success_rate && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{p.success_rate}</span>}
-                {p.effectiveness && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{p.effectiveness}</span>}
-              </div>
-              {p.description && p.pattern && <p className="text-xs text-gray-600 ml-4">{p.description}</p>}
-              {Array.isArray(p.examples) && (
-                <div className="flex flex-wrap gap-1 ml-4 mt-1">
-                  {p.examples.map((ex: string, j: number) => (
-                    <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-white text-purple-600 italic">&ldquo;{ex}&rdquo;</span>
-                  ))}
-                </div>
-              )}
-              {Array.isArray(p.best_platforms) && (
-                <div className="flex gap-1 ml-4 mt-1">
-                  {p.best_platforms.map((pl: string, j: number) => (
-                    <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{platformEmoji[pl] || ''} {pl}</span>
-                  ))}
-                </div>
-              )}
+// ── Hooks by Platform ───────────────────────────────────────
+function HooksByPlatform({ hooks }: { hooks: any }) {
+  if (!hooks || typeof hooks !== 'object') return null
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hooks Ganadores por Plataforma</h3>
+      <div className="space-y-4">
+        {Object.entries(hooks).map(([platform, items]: [string, any]) => (
+          <div key={platform}>
+            <div className="flex items-center gap-2 mb-2">
+              <span>{platformEmoji[platform] || '📱'}</span>
+              <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
             </div>
-          ))}
-        </div>
+            <div className="space-y-1 ml-6">
+              {Array.isArray(items) ? items.map((h: any, i: number) => (
+                <div key={i} className="p-2 rounded bg-purple-50 text-xs text-purple-700">
+                  {typeof h === 'string' ? h : h.template || h.type || JSON.stringify(h)}
+                </div>
+              )) : typeof items === 'object' ? Object.entries(items).map(([k, v]: [string, any]) => (
+                <div key={k} className="p-2 rounded bg-purple-50 text-xs">
+                  <span className="font-semibold text-purple-700 capitalize">{k.replace(/_/g, ' ')}: </span>
+                  <span className="text-purple-600">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+                </div>
+              )) : null}
+            </div>
+          </div>
+        ))}
       </div>
-    )
-  }
+    </div>
+  )
+}
 
-  // Object format: { top_performing_hooks: [...], narrative_structures: [...], ... }
-  if (typeof patterns === 'object' && patterns !== null) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Patrones Detectados</h3>
-        <div className="space-y-5">
-          {Object.entries(patterns).map(([category, items]: [string, any]) => (
-            <div key={category}>
-              <h4 className="text-xs font-bold text-purple-700 uppercase mb-2">{category.replace(/_/g, ' ')}</h4>
-              {Array.isArray(items) ? (
-                <div className="space-y-2">
-                  {items.map((item: any, i: number) => (
-                    <div key={i} className="p-3 rounded-lg bg-purple-50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-purple flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-800">
-                          {typeof item === 'string' ? item : item.type || item.pattern || item.name || JSON.stringify(item)}
-                        </span>
-                        {item.effectiveness && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{item.effectiveness}</span>}
-                        {item.success_rate && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{item.success_rate}</span>}
-                      </div>
-                      {item.description && <p className="text-xs text-gray-600 ml-4">{item.description}</p>}
-                      {Array.isArray(item.examples) && (
-                        <div className="flex flex-wrap gap-1 ml-4 mt-1">
-                          {item.examples.map((ex: string, j: number) => (
-                            <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-white text-purple-600 italic">&ldquo;{ex}&rdquo;</span>
-                          ))}
-                        </div>
-                      )}
-                      {Array.isArray(item.best_platforms) && (
-                        <div className="flex gap-1 ml-4 mt-1">
-                          {item.best_platforms.map((pl: string, j: number) => (
-                            <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{platformEmoji[pl] || ''} {pl}</span>
-                          ))}
-                        </div>
-                      )}
+// ── Formats by Platform ─────────────────────────────────────
+function FormatsByPlatform({ formats }: { formats: any }) {
+  if (!formats || typeof formats !== 'object') return null
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Formatos Ganadores por Plataforma</h3>
+      <div className="space-y-4">
+        {Object.entries(formats).map(([platform, fmt]: [string, any]) => (
+          <div key={platform}>
+            <div className="flex items-center gap-2 mb-2">
+              <span>{platformEmoji[platform] || '📱'}</span>
+              <span className="text-sm font-semibold text-gray-800 capitalize">{platform}</span>
+            </div>
+            <div className="ml-6">
+              {Array.isArray(fmt) ? (
+                <div className="space-y-1">
+                  {fmt.map((f: any, i: number) => (
+                    <div key={i} className="p-2 rounded bg-green-50 text-xs text-green-700">
+                      {typeof f === 'string' ? f : f.format || JSON.stringify(f)}
                     </div>
                   ))}
                 </div>
-              ) : typeof items === 'string' ? (
-                <p className="text-xs text-gray-600 ml-4">{items}</p>
-              ) : typeof items === 'object' ? (
-                <div className="p-3 rounded-lg bg-purple-50">
-                  {Object.entries(items).map(([k, v]: [string, any]) => (
-                    <div key={k} className="text-xs mb-1">
-                      <span className="font-semibold text-purple-700 capitalize">{k.replace(/_/g, ' ')}: </span>
-                      <span className="text-purple-600">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+              ) : typeof fmt === 'object' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(fmt).map(([k, v]: [string, any]) => (
+                    <div key={k} className="p-2 rounded bg-green-50 text-xs">
+                      <span className="font-semibold text-green-700 capitalize">{k.replace(/_/g, ' ')}: </span>
+                      <span className="text-green-600">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
                     </div>
                   ))}
                 </div>
-              ) : null}
+              ) : (
+                <span className="text-xs text-gray-500">{String(fmt)}</span>
+              )}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }
 
 // ── Generic Section — renders any nested object/array ───────
