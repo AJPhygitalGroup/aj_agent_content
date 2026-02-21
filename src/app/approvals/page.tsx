@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import ApprovalCard from '@/components/approval-card'
-import { CheckCircle, FileText, Send, Loader2, Play, XCircle, RefreshCw } from 'lucide-react'
+import { CheckCircle, FileText, Send, Loader2, Play, XCircle, RefreshCw, AlertCircle } from 'lucide-react'
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -13,6 +13,24 @@ const tabs: { id: Tab; label: string; icon: any; description: string }[] = [
   { id: 'post_production', label: 'Contenido', icon: CheckCircle, description: 'Revisar scripts y compliance' },
   { id: 'pre_publication', label: 'Publicar', icon: Send, description: 'Confirmar schedule antes de publicar' },
 ]
+
+// Maps pipeline phase to which tab it belongs to
+function phaseToTab(phase: number): Tab {
+  if (phase <= 2) return 'post_planning'
+  if (phase <= 5) return 'post_production'
+  return 'pre_publication'
+}
+
+// Phase descriptions for running state
+const phaseDescriptions: Record<number, string> = {
+  1: 'Investigando tendencias y analizando contenido viral...',
+  2: 'Generando el plan de contenido semanal...',
+  3: 'Escribiendo guiones y optimizando SEO...',
+  4: 'Creando imagenes, thumbnails y carruseles...',
+  5: 'Validando contenido con brand guidelines...',
+  6: 'Programando publicaciones en redes sociales...',
+  7: 'Analizando metricas de engagement...',
+}
 
 export default function ApprovalsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('post_planning')
@@ -25,6 +43,13 @@ export default function ApprovalsPage() {
   const [pipelineState, setPipelineState] = useState<any>(null)
   const [approving, setApproving] = useState(false)
   const [reloading, setReloading] = useState(false)
+
+  // Determine if current tab has the data it needs to show approval content
+  function hasDataForPhase(phase: number): boolean {
+    if (phase <= 2) return !!(contentPlan?.daily_plans)
+    if (phase <= 5) return !!(scripts?.scripts)
+    return !!(schedule?.scheduled_posts)
+  }
 
   // Load all content data from API
   async function reloadContent() {
@@ -46,24 +71,32 @@ export default function ApprovalsPage() {
     async function init() {
       setLoading(true)
       const campaignRes = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
-      setPipelineState(campaignRes?.pipeline || null)
+      const pipeline = campaignRes?.pipeline || null
+      setPipelineState(pipeline)
+      // Auto-switch tab based on pipeline phase
+      if (pipeline?.phase) {
+        setActiveTab(phaseToTab(pipeline.phase))
+      }
       await reloadContent()
       setLoading(false)
     }
     init()
-    // Poll every 5s — reload content when pipeline is at a checkpoint
+
+    // Poll every 5s
     const interval = setInterval(async () => {
       const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
       if (res?.pipeline) {
+        const prev = pipelineState
         setPipelineState(res.pipeline)
-        // Always reload content when at checkpoint so we see the latest data
-        if (res.pipeline.status === 'waiting_approval') {
+
+        // Auto-switch tab when phase changes
+        if (res.pipeline.phase && (!prev || prev.phase !== res.pipeline.phase)) {
+          setActiveTab(phaseToTab(res.pipeline.phase))
+        }
+
+        // Reload content when at checkpoint or when status just changed
+        if (res.pipeline.status === 'waiting_approval' || res.pipeline.status === 'running') {
           await reloadContent()
-          // Auto-switch tab based on pipeline phase
-          const phase = res.pipeline.phase
-          if (phase <= 2) setActiveTab('post_planning')
-          else if (phase <= 5) setActiveTab('post_production')
-          else if (phase === 6) setActiveTab('pre_publication')
         }
       }
     }, 5000)
@@ -84,7 +117,7 @@ export default function ApprovalsPage() {
       await fetch(`${BACKEND}/api/pipeline/approve`, { method: 'POST' })
       const res = await fetch(`${BACKEND}/api/campaigns`).then(r => r.json()).catch(() => null)
       if (res?.pipeline) setPipelineState(res.pipeline)
-    } catch { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     setApproving(false)
   }
 
@@ -115,6 +148,13 @@ export default function ApprovalsPage() {
     setApprovals(res)
   }
 
+  // ── Derived state ──
+  const isRunning = pipelineState?.status === 'running'
+  const isWaiting = pipelineState?.status === 'waiting_approval'
+  const phase = pipelineState?.phase || 0
+  const phaseName = pipelineState?.phase_name || ''
+  const dataReady = isWaiting && hasDataForPhase(phase)
+
   return (
     <div className="max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
@@ -134,51 +174,121 @@ export default function ApprovalsPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        {tabs.map(tab => (
+        {tabs.map(t => (
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab.id
+              activeTab === t.id
                 ? 'bg-brand-blue text-white shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             }`}
           >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
+            <t.icon className="w-4 h-4" />
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Pipeline Checkpoint Banner */}
-      {pipelineState?.status === 'waiting_approval' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-amber-900">
-                Pipeline esperando aprobacion - Fase {pipelineState.phase}: {pipelineState.phase_name}
+      {/* ── Pipeline Running Banner (blue) ── */}
+      {isRunning && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-blue-900">
+                Pipeline en ejecucion - Fase {phase}: {phaseName}
               </h3>
-              <p className="text-xs text-amber-700 mt-1">
-                Revisa el contenido abajo y cuando estes listo, aprueba para continuar con la siguiente fase.
+              <p className="text-xs text-blue-700 mt-1">
+                {phaseDescriptions[phase] || 'Procesando...'}
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handlePipelineApprove}
-                disabled={approving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 text-sm"
-              >
-                {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                Aprobar y Continuar
-              </button>
+            <button
+              onClick={handlePipelineStop}
+              className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors text-xs flex-shrink-0"
+            >
+              <XCircle className="w-4 h-4" />
+              Detener
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Checkpoint Banner (amber) — waiting for approval ── */}
+      {isWaiting && (
+        <div className={`rounded-xl p-5 mb-6 border ${dataReady ? 'bg-amber-50 border-amber-200' : 'bg-amber-50/50 border-amber-100'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              {dataReady ? (
+                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              ) : (
+                <Loader2 className="w-5 h-5 text-amber-500 animate-spin flex-shrink-0" />
+              )}
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">
+                  {dataReady
+                    ? `Checkpoint - Fase ${phase}: ${phaseName}`
+                    : `Cargando datos de Fase ${phase}: ${phaseName}...`
+                  }
+                </h3>
+                <p className="text-xs text-amber-700 mt-1">
+                  {dataReady
+                    ? 'Revisa el contenido abajo. Aprueba cada item individualmente o todo de una vez, y luego continua el pipeline.'
+                    : 'Los datos se estan cargando. La pagina se actualiza automaticamente cada 5 segundos.'
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-shrink-0 ml-3">
+              {dataReady && (
+                <button
+                  onClick={handlePipelineApprove}
+                  disabled={approving}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  Aprobar y Continuar
+                </button>
+              )}
               <button
                 onClick={handlePipelineStop}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors text-sm"
+                className="flex items-center gap-2 px-3 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors text-sm"
               >
                 <XCircle className="w-4 h-4" />
                 Detener
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Completed / Error / Stopped banners ── */}
+      {pipelineState?.status === 'completed' && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-500" />
+            <p className="text-sm font-medium text-green-800">Pipeline completado exitosamente</p>
+          </div>
+        </div>
+      )}
+
+      {pipelineState?.status === 'error' && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Error en el pipeline</p>
+              {pipelineState.error && <p className="text-xs text-red-600 mt-1">{pipelineState.error}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pipelineState?.status === 'stopped_by_user' && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-gray-400" />
+            <p className="text-sm font-medium text-gray-600">Pipeline detenido por el usuario</p>
           </div>
         </div>
       )}
@@ -189,7 +299,7 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {/* Post-Planning Tab */}
+      {/* ── Post-Planning Tab ── */}
       {!loading && activeTab === 'post_planning' && (
         <div>
           {contentPlan?.daily_plans ? (
@@ -233,19 +343,17 @@ export default function ApprovalsPage() {
                 </div>
               ))}
             </>
-          ) : pipelineState?.status === 'waiting_approval' && pipelineState?.phase === 2 ? (
-            <div className="bg-white rounded-xl border border-amber-200 p-8 text-center">
-              <Loader2 className="w-8 h-8 text-amber-400 mx-auto mb-3 animate-spin" />
-              <p className="text-sm font-medium text-amber-800">El plan se esta generando o cargando...</p>
-              <p className="text-xs text-amber-600 mt-1">La pagina se actualiza automaticamente cada 5 segundos. Tambien puedes presionar &quot;Recargar&quot;.</p>
-            </div>
+          ) : isRunning && phase <= 2 ? (
+            <RunningState text={phaseDescriptions[phase] || 'Generando plan...'} />
+          ) : isWaiting && phase <= 2 ? (
+            <RunningState text="El plan se genero pero esta cargando. Se actualiza automaticamente..." />
           ) : (
-            <EmptyState text="No hay plan de contenido aun. Ejecuta las fases 1 y 2 del pipeline." />
+            <EmptyState text="No hay plan de contenido aun. Inicia una campana para generar el plan." />
           )}
         </div>
       )}
 
-      {/* Post-Production Tab */}
+      {/* ── Post-Production Tab ── */}
       {!loading && activeTab === 'post_production' && (
         <div>
           {scripts?.scripts ? (
@@ -253,7 +361,7 @@ export default function ApprovalsPage() {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">
                   {scripts.total_scripts || scripts.scripts.length} scripts generados
-                  {compliance && ` | Score batch: ${Math.round((compliance.batch_score || 0) * 100)}%`}
+                  {compliance && ` | Brand score: ${Math.round((compliance.batch_score || 0) * 100)}%`}
                 </p>
                 <button
                   onClick={() => {
@@ -289,19 +397,17 @@ export default function ApprovalsPage() {
                 })}
               </div>
             </>
-          ) : pipelineState?.status === 'waiting_approval' && pipelineState?.phase === 5 ? (
-            <div className="bg-white rounded-xl border border-amber-200 p-8 text-center">
-              <Loader2 className="w-8 h-8 text-amber-400 mx-auto mb-3 animate-spin" />
-              <p className="text-sm font-medium text-amber-800">El contenido se esta cargando...</p>
-              <p className="text-xs text-amber-600 mt-1">Presiona &quot;Recargar&quot; o espera a que se actualice automaticamente.</p>
-            </div>
+          ) : isRunning && phase >= 3 && phase <= 5 ? (
+            <RunningState text={phaseDescriptions[phase] || 'Generando contenido...'} />
+          ) : isWaiting && phase === 5 ? (
+            <RunningState text="Los scripts se generaron pero estan cargando..." />
           ) : (
-            <EmptyState text="No hay scripts generados aun. Ejecuta la fase 3 del pipeline." />
+            <EmptyState text="No hay scripts generados aun. El pipeline debe pasar la Fase 3 primero." />
           )}
         </div>
       )}
 
-      {/* Pre-Publication Tab */}
+      {/* ── Pre-Publication Tab ── */}
       {!loading && activeTab === 'pre_publication' && (
         <div>
           {schedule?.scheduled_posts ? (
@@ -336,11 +442,25 @@ export default function ApprovalsPage() {
                 ))}
               </div>
             </>
+          ) : isRunning && phase === 6 ? (
+            <RunningState text={phaseDescriptions[6]} />
+          ) : isWaiting && phase === 6 ? (
+            <RunningState text="Las publicaciones se programaron pero estan cargando..." />
           ) : (
-            <EmptyState text="No hay publicaciones programadas aun. Ejecuta la fase 6 del pipeline." />
+            <EmptyState text="No hay publicaciones programadas aun. El pipeline debe pasar la Fase 6 primero." />
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function RunningState({ text }: { text: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-blue-100 p-8 text-center">
+      <Loader2 className="w-8 h-8 text-blue-400 mx-auto mb-3 animate-spin" />
+      <p className="text-sm font-medium text-blue-800">{text}</p>
+      <p className="text-xs text-gray-400 mt-2">Se actualiza automaticamente cada 5 segundos</p>
     </div>
   )
 }
